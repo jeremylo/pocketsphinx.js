@@ -49,7 +49,7 @@
 		this.cancel = function () {
 			this.stop();
 		};
-		myClosure = this;
+		var myClosure = this;
 		worker.onmessage = function (e) {
 			if (e.data.error && (e.data.error == "silent")) errorCallback("silent");
 			if ((e.data.command == 'newBuffer') && recording) {

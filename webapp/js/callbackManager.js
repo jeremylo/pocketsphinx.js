@@ -1,21 +1,20 @@
-(function (window) {
-	var CallbackManager = function () {
-		var currentId = 0;
-		var callbackPool = {};
-		this.add = function (clb) {
-			var id = currentId;
-			callbackPool[id] = clb;
-			currentId++;
-			return id;
-		};
-		this.get = function (id) {
-			if (callbackPool.hasOwnProperty(id)) {
-				var clb = callbackPool[id];
-				delete callbackPool[id];
-				return clb;
-			}
-			return null;
-		};
-	};
-	window.CallbackManager = CallbackManager;
-})(window);
+export default class CallbackManager {
+	constructor() {
+		this.currentId = 0;
+		this.callbackPool = {};
+	}
+
+	add(callback) {
+		let id = this.currentId;
+		this.callbackPool[this.currentId++] = callback;
+		return id;
+	}
+
+	get(id) {
+		if (id in this.callbackPool) {
+			let callback = this.callbackPool[id];
+			delete this.callbackPool[id];
+			return callback;
+		}
+	}
+};
