@@ -1,20 +1,14 @@
 #!/usr/bin/env python
 #
-# Small web server that serves
-# pocketsphinx.wasm with the
-# correct MIME type
+# Small web server that serves pocketsphinx.wasm with the correct MIME type
 #
 
-import SimpleHTTPServer
-import SocketServer
+from http.server import SimpleHTTPRequestHandler
+import socketserver
 
 PORT = 8000
 
-Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-
-Handler.extensions_map['.wasm'] = 'application/wasm'
-httpd = SocketServer.TCPServer(("", PORT), Handler)
-
-print("serving at port {}".format(PORT))
-
-httpd.serve_forever()
+SimpleHTTPRequestHandler.extensions_map['.wasm'] = 'application/wasm'
+with socketserver.TCPServer(("", PORT), SimpleHTTPRequestHandler) as httpd:
+    print("Serving on port {}".format(PORT))
+    httpd.serve_forever()
