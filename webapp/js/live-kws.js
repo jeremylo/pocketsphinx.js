@@ -17,7 +17,7 @@ function postRecognizerJob(message, callback) {
 // This function initializes an instance of the recorder
 // it posts a message right away and calls onReady when it
 // is ready so that onmessage can be properly set
-function spawnWorker(workerURL, onReady) {
+function spawnRecognizerWorker(workerURL, onReady) {
     recognizer = new Worker(workerURL);
     recognizer.onmessage = function (event) {
         onReady(recognizer);
@@ -25,11 +25,6 @@ function spawnWorker(workerURL, onReady) {
     // As arguments, you can pass non-default path to pocketsphinx.js and pocketsphinx.wasm:
     // recognizer.postMessage({'pocketsphinx.wasm': '/path/to/pocketsphinx.wasm', 'pocketsphinx.js': '/path/to/pocketsphinx.js'});
     recognizer.postMessage({});
-};
-
-// To display the hypothesis sent by the recognizer
-function updateCount(count) {
-    if (outputContainer) outputContainer.innerHTML = count;
 };
 
 // This updates the UI when the app might get ready
@@ -58,20 +53,34 @@ function startUserMedia(stream) {
     var audioRecorderConfig = { errorCallback: function (x) { updateStatus("Error from recorder: " + x); } };
     recorder = new AudioRecorder(input, audioRecorderConfig);
     // If a recognizer is ready, we pass it to the recorder
-    if (recognizer) recorder.consumers = [recognizer];
+    if (recognizer) {
+        recorder.consumers = [recognizer];
+    }
+
     isRecorderReady = true;
     updateUI();
     updateStatus("Audio recorder ready");
 };
 
-// This starts recording. We first need to get the id of the keyword search to use
-var startRecording = function () {
-    var id = document.getElementById('keyword').value;
-    if (recorder && recorder.start(id)) displayRecording(true);
+// To display the hypothesis sent by the recognizer
+function updateOutputContainer(hyp) {
+    if (outputContainer) {
+        outputContainer.innerHTML = hyp;
+    }
 };
 
+
+// This starts recording. We first need to get the id of the keyword search to use.
+async function startRecording() {
+    await audioContext.resume();
+    if (recorder && recorder.start(document.getElementById('keyword').value)) {
+        displayRecording(true);
+    }
+}
+
 // Stops recording
-var stopRecording = function () {
+async function stopRecording() {
+    await audioContext.suspend();
     recorder && recorder.stop();
     displayRecording(false);
 };
@@ -134,7 +143,7 @@ window.onload = function () {
     outputContainer = document.getElementById("output");
     updateStatus("Initializing web audio and speech recognizer, waiting for approval to access the microphone");
     callbackManager = new CallbackManager();
-    spawnWorker("js/recognizer.js", function (worker) {
+    spawnRecognizerWorker("js/recognizer-worker.js", function (worker) {
         // This is the onmessage function, once the worker is fully loaded
         worker.onmessage = function (e) {
             // This is the case when we have a callback id to be called
@@ -148,7 +157,7 @@ window.onload = function () {
             if (e.data.hasOwnProperty('hyp')) {
                 var newCount = e.data.hyp;
                 if (e.data.hasOwnProperty('final') && e.data.final) newCount = "Final: " + newCount;
-                updateCount(newCount);
+                updateOutputContainer(newCount);
             }
             // This is the case when we have an error
             if (e.data.hasOwnProperty('status') && (e.data.status == "error")) {
@@ -168,10 +177,14 @@ window.onload = function () {
     } catch (e) {
         updateStatus("Error initializing Web Audio browser");
     }
-    if (navigator.getUserMedia) navigator.getUserMedia({ audio: true }, startUserMedia, function (e) {
-        updateStatus("No live audio input in this browser");
-    });
-    else updateStatus("No web audio support in this browser");
+
+    if (navigator.getUserMedia) {
+        navigator.getUserMedia({ audio: true }, startUserMedia, function (e) {
+            updateStatus("No live audio input in this browser");
+        });
+    } else {
+        updateStatus("No web audio support in this browser");
+    }
 
     // Wiring JavaScript to the UI
     var startBtn = document.getElementById('startBtn');
